@@ -69,10 +69,7 @@ export default function ExcelExtractor() {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
-      <div className="mb-8 text-center">
-        <h1 className="text-4xl font-bold mb-2 ">
-          Excel Data Extractor
-        </h1>
+      <div className="mb-8">
         <p className="text-muted-foreground">
           Upload your Excel file and get JSON data instantly
         </p>
