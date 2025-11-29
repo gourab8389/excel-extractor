@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 
 export interface ExcelData {
   sheetName: string;
-  data: Record<string, any>[];
+  data: any[];
   headers: string[];
   rowCount: number;
   columnCount: number;
@@ -60,35 +60,53 @@ export async function processExcelFile(formData: FormData): Promise<ExcelRespons
     const sheets: ExcelData[] = workbook.SheetNames.map((sheetName) => {
       const worksheet = workbook.Sheets[sheetName];
       
-      // Convert sheet to JSON
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+      // Convert sheet to JSON with plain objects
+      const jsonData: any[] = XLSX.utils.sheet_to_json(worksheet, { 
         defval: '',
-        blankrows: false 
+        blankrows: false,
+        raw: false // This ensures values are converted to strings/numbers, not Date objects
+      });
+
+      // Convert all data to plain serializable objects
+      const plainData = jsonData.map(row => {
+        const plainRow: any = {};
+        for (const key in row) {
+          const value = row[key];
+          // Convert any non-serializable values to strings
+          if (value instanceof Date) {
+            plainRow[key] = value.toISOString();
+          } else if (typeof value === 'object' && value !== null) {
+            plainRow[key] = JSON.parse(JSON.stringify(value));
+          } else {
+            plainRow[key] = value;
+          }
+        }
+        return plainRow;
       });
 
       // Get headers
-      const headers = jsonData.length > 0 ? Object.keys(jsonData[0] as Record<string, any>) : [];
+      const headers = plainData.length > 0 ? Object.keys(plainData[0]) : [];
 
       // Get sheet dimensions
       const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
-      const rowCount = range.e.r - range.s.r + 1;
       const columnCount = range.e.c - range.s.c + 1;
 
       return {
         sheetName,
-        data: jsonData as Record<string, any>[],
+        data: plainData,
         headers,
-        rowCount: jsonData.length,
+        rowCount: plainData.length,
         columnCount: headers.length
       };
     });
 
-    return {
+    // Return plain serializable object
+    return JSON.parse(JSON.stringify({
       success: true,
       sheets,
       totalSheets: sheets.length,
       fileName: file.name
-    };
+    }));
 
   } catch (error) {
     console.error('Error processing Excel file:', error);
